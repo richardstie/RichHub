@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RE20 · Erlangen → Würzburg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+  :root {
+    --ink: #0f1419;
+    --paper: #f5efe2;
+    --paper-dark: #e8dfc9;
+    --rail: #b8332a;
+    --rail-dark: #7a1f17;
+    --accent: #d4a017;
+    --line: #2a2520;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+  }
+
+  body {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    grid-template-rows: 100vh;
+  }
+
+  /* ---------- LEFT PANEL ---------- */
+  .panel {
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(180,150,90,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 90%, rgba(180,50,40,0.08) 0%, transparent 50%);
+    border-right: 2px solid var(--line);
+    padding: 32px 28px;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(42,37,32,0.04) 23px, rgba(42,37,32,0.04) 24px);
+    pointer-events: none;
+  }
+
+  .header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+    position: relative;
+  }
+
+  .stamp {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    color: var(--rail);
+    border: 1.5px solid var(--rail);
+    padding: 4px 10px;
+    transform: rotate(-2deg);
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: 38px;
+    line-height: 0.95;
+    letter-spacing: -1.5px;
+    font-variation-settings: "opsz" 144;
+  }
+
+  h1 .arrow {
+    color: var(--rail);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 12px;
+    color: #5a4d3f;
+  }
+
+  /* ---------- TIMELINE ---------- */
+  .timeline {
+    position: relative;
+    padding-left: 0;
+  }
+
+  .stop {
+    position: relative;
+    padding: 0 0 28px 42px;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .stop:hover { transform: translateX(4px); }
+
+  .stop::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 22px;
+    width: 2px;
+    height: calc(100% + 6px);
+    background: repeating-linear-gradient(180deg, var(--ink) 0 4px, transparent 4px 8px);
+  }
+
+  .stop:last-child::before { display: none; }
+
+  .dot {
+    position: absolute;
+    left: 6px;
+    top: 8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    z-index: 2;
+    transition: all 0.3s ease;
+  }
+
+  .stop.active .dot {
+    background: var(--rail);
+    border-color: var(--rail-dark);
+    box-shadow: 0 0 0 6px rgba(184, 51, 42, 0.15);
+    transform: scale(1.15);
+  }
+
+  .stop.start .dot { background: var(--ink); }
+  .stop.end .dot { background: var(--accent); border-color: var(--ink); }
+
+  .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .city {
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+    margin-top: 4px;
+    letter-spacing: -0.5px;
+  }
+
+  .action {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--rail);
+    margin-top: 8px;
+    font-weight: 500;
+  }
+
+  .person {
+    display: inline-block;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 15px;
+    margin-top: 6px;
+    color: #2a2520;
+  }
+
+  .person::before {
+    content: '+ ';
+    color: var(--rail);
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  /* ---------- FOOTER ---------- */
+  .footer {
+    position: relative;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #5a4d3f;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ---------- MAP ---------- */
+  #map {
+    height: 100%;
+    width: 100%;
+    background: #d6cdb8;
+    filter: saturate(0.85) sepia(0.08);
+  }
+
+  .leaflet-container {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Custom marker style */
+  .pin {
+    width: 32px;
+    height: 32px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--rail);
+    border: 2.5px solid var(--ink);
+    transform: rotate(-45deg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    position: relative;
+  }
+  .pin::after {
+    content: '';
+    width: 10px; height: 10px;
+    background: var(--paper);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .pin.start { background: var(--ink); }
+  .pin.end { background: var(--accent); }
+
+  .pin-label {
+    position: absolute;
+    top: -38px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 3px 7px;
+    white-space: nowrap;
+    letter-spacing: 1px;
+  }
+
+  .leaflet-popup-content-wrapper {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .leaflet-popup-content {
+    margin: 14px 18px;
+    font-family: 'Fraunces', serif;
+  }
+  .leaflet-popup-content b {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--rail);
+  }
+  .leaflet-popup-tip { background: var(--ink); }
+
+  /* Train animation */
+  @keyframes trainMove {
+    from { offset-distance: 0%; }
+    to { offset-distance: 100%; }
+  }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .panel { max-height: 50vh; }
+    h1 { font-size: 28px; }
+  }
+
+  /* Decorative ticket-edge */
+  .panel::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-image: radial-gradient(circle at 50% 0%, var(--paper) 4px, transparent 4px);
+    background-size: 2px 14px;
+    z-index: 3;
+  }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="header">
+    <span class="stamp">RE 20 · Reiseplan</span>
+    <h1>Erlangen <span class="arrow">→</span><br>Würzburg</h1>
+    <div class="subtitle">Dienstag · 19. Mai 2026</div>
+  </div>
+
+  <div class="timeline">
+    <div class="stop start active" data-stop="0">
+      <div class="dot"></div>
+      <div class="time">15:57</div>
+      <div class="city">Erlangen</div>
+      <div class="action">Abfahrt · Richard steigt ein</div>
+    </div>
+
+    <div class="stop" data-stop="1">
+      <div class="dot"></div>
+      <div class="time">16:26</div>
+      <div class="city">Bamberg</div>
+      <div class="action">Zustieg</div>
+      <div class="person">Christian</div>
+    </div>
+
+    <div class="stop end" data-stop="2">
+      <div class="dot"></div>
+      <div class="time">17:21</div>
+      <div class="city">Würzburg</div>
+      <div class="action">Ankunft · Treffen</div>
+      <div class="person">Christof</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>RE 20</span>
+    <span>Fahrtdauer 1h 24min</span>
+  </div>
+</aside>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  const stops = [
+    { name: 'Erlangen Hbf',  time: '15:57', coords: [49.596081, 11.0020467], type: 'start', note: 'Richard steigt ein' },
+    { name: 'Bamberg Hbf',   time: '16:26', coords: [49.9006305, 10.8998949], type: 'mid',   note: 'Christian kommt dazu' },
+    { name: 'Würzburg Hbf',  time: '17:21', coords: [49.8023620, 9.9356000],  type: 'end',   note: 'Treffen mit Christof' }
+  ];
+
+  // Map setup — using Stadia "Stamen Toner Lite" via a free tile provider
+  const map = L.map('map', {
+    zoomControl: false,
+    attributionControl: true
+  }).setView([49.78, 10.45], 8);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // Warm, vintage-feeling tile layer (CartoDB Voyager — free, no API key)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Custom HTML markers
+  const markers = stops.map((stop) => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="pin ${stop.type}"><div class="pin-label">${stop.time} · ${stop.name.replace(' Hbf','')}</div></div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    });
+    const marker = L.marker(stop.coords, { icon }).addTo(map);
+    marker.bindPopup(`<b>${stop.time} · ${stop.name}</b>${stop.note}`);
+    return marker;
+  });
+
+  // Polyline connecting stops (rail-style: solid red with dashed overlay)
+  const path = stops.map(s => s.coords);
+
+  L.polyline(path, {
+    color: '#7a1f17',
+    weight: 6,
+    opacity: 0.9,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(map);
+
+  L.polyline(path, {
+    color: '#f5efe2',
+    weight: 2,
+    opacity: 0.95,
+    dashArray: '8, 10',
+    lineCap: 'butt'
+  }).addTo(map);
+
+  // Fit bounds with padding
+  map.fitBounds(L.latLngBounds(path), { padding: [80, 80] });
+
+  // Sidebar interactions
+  const stopEls = document.querySelectorAll('.stop');
+  stopEls.forEach((el, i) => {
+    el.addEventListener('click', () => {
+      stopEls.forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      map.flyTo(stops[i].coords, 11, { duration: 1.2 });
+      markers[i].openPopup();
+    });
+    el.addEventListener('mouseenter', () => {
+      markers[i]._icon.style.transition = 'transform 0.3s ease';
+      markers[i]._icon.style.transform += ' scale(1.15)';
+    });
+    el.addEventListener('mouseleave', () => {
+      markers[i]._icon.style.transform = markers[i]._icon.style.transform.replace(' scale(1.15)', '');
+    });
+  });
+
+  // Open first popup
+  setTimeout(() => markers[0].openPopup(), 400);
+</script>
+</body>
+</html>
