@@ -194,6 +194,81 @@
     font-style: normal;
   }
 
+  .delete-btn {
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    background: var(--rail);
+    color: var(--paper);
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+
+  .delete-btn:hover {
+    background: var(--rail-dark);
+  }
+
+  /* ---------- ADD STOP FORM ---------- */
+  .add-stop-form {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--ink);
+  }
+
+  .add-stop-form h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .form-group label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    color: #5a4d3f;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .add-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--rail);
+    color: var(--paper);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .add-btn:hover {
+    background: var(--rail-dark);
+  }
+
   /* ---------- FOOTER ---------- */
   .footer {
     position: relative;
@@ -205,8 +280,6 @@
     letter-spacing: 1.5px;
     text-transform: uppercase;
     color: #5a4d3f;
-    display: flex;
-    justify-content: space-between;
   }
 
   /* ---------- MAP ---------- */
@@ -279,12 +352,6 @@
   }
   .leaflet-popup-tip { background: var(--ink); }
 
-  /* Train animation */
-  @keyframes trainMove {
-    from { offset-distance: 0%; }
-    to { offset-distance: 100%; }
-  }
-
   /* Mobile */
   @media (max-width: 768px) {
     body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -315,34 +382,28 @@
     <div class="subtitle">Dienstag · 19. Mai 2026</div>
   </div>
 
-  <div class="timeline">
-    <div class="stop start active" data-stop="0">
-      <div class="dot"></div>
-      <div class="time">15:57</div>
-      <div class="city">Erlangen</div>
-      <div class="action">Abfahrt · Richard steigt ein</div>
-    </div>
+  <div class="timeline" id="timeline"></div>
 
-    <div class="stop" data-stop="1">
-      <div class="dot"></div>
-      <div class="time">16:26</div>
-      <div class="city">Bamberg</div>
-      <div class="action">Zustieg</div>
-      <div class="person">Christian</div>
+  <div class="add-stop-form">
+    <h3>Add Stop</h3>
+    <div class="form-group">
+      <label>Station Name</label>
+      <input type="text" id="stationName" placeholder="e.g., Berlin Hbf">
     </div>
-
-    <div class="stop end" data-stop="2">
-      <div class="dot"></div>
-      <div class="time">17:21</div>
-      <div class="city">Würzburg</div>
-      <div class="action">Ankunft · Treffen</div>
-      <div class="person">Christof</div>
+    <div class="form-group">
+      <label>Your Name</label>
+      <input type="text" id="yourName" placeholder="e.g., Alice">
     </div>
+    <div class="form-group">
+      <label>Time (HH:MM)</label>
+      <input type="text" id="stopTime" placeholder="14:30">
+    </div>
+    <button class="add-btn" onclick="addStop()">Add Stop</button>
   </div>
 
   <div class="footer">
     <span>RE 20</span>
-    <span>Fahrtdauer 1h 24min</span>
+    <span id="duration">Loading...</span>
   </div>
 </aside>
 
@@ -350,82 +411,194 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-  const stops = [
-    { name: 'Erlangen Hbf',  time: '15:57', coords: [49.596081, 11.0020467], type: 'start', note: 'Richard steigt ein' },
-    { name: 'Bamberg Hbf',   time: '16:26', coords: [49.9006305, 10.8998949], type: 'mid',   note: 'Christian kommt dazu' },
-    { name: 'Würzburg Hbf',  time: '17:21', coords: [49.8023620, 9.9356000],  type: 'end',   note: 'Treffen mit Christof' }
-  ];
+  let stops = [];
+  let map;
+  let markers = [];
+  let polylines = [];
 
-  // Map setup — using Stadia "Stamen Toner Lite" via a free tile provider
-  const map = L.map('map', {
-    zoomControl: false,
-    attributionControl: true
-  }).setView([49.78, 10.45], 8);
+  // Load stops from localStorage
+  function loadStops() {
+    const saved = localStorage.getItem('trainStops');
+    if (saved) {
+      stops = JSON.parse(saved);
+    }
+  }
 
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  // Save stops to localStorage
+  function saveStops() {
+    localStorage.setItem('trainStops', JSON.stringify(stops));
+  }
 
-  // Warm, vintage-feeling tile layer (CartoDB Voyager — free, no API key)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
+  // Initialize map
+  function initMap() {
+    map = L.map('map', {
+      zoomControl: false,
+      attributionControl: true
+    }).setView([49.78, 10.45], 8);
 
-  // Custom HTML markers
-  const markers = stops.map((stop) => {
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="pin ${stop.type}"><div class="pin-label">${stop.time} · ${stop.name.replace(' Hbf','')}</div></div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32]
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+  }
+
+  // Render timeline
+  function renderTimeline() {
+    const timeline = document.getElementById('timeline');
+    timeline.innerHTML = '';
+
+    if (stops.length === 0) {
+      timeline.innerHTML = '<p style="color: #5a4d3f; font-size: 14px;">No stops added yet. Add one below!</p>';
+      return;
+    }
+
+    stops.forEach((stop, index) => {
+      const stopEl = document.createElement('div');
+      stopEl.className = 'stop';
+      if (index === 0) stopEl.classList.add('start');
+      if (index === stops.length - 1) stopEl.classList.add('end');
+      if (index === 0) stopEl.classList.add('active');
+
+      stopEl.innerHTML = `
+        <div class="dot"></div>
+        <div class="time">${stop.time}</div>
+        <div class="city">${stop.name}</div>
+        <div class="action">${index === 0 ? 'Start' : (index === stops.length - 1 ? 'End' : 'Stop')}</div>
+        ${stop.person ? `<div class="person">${stop.person}</div>` : ''}
+        <button class="delete-btn" onclick="deleteStop(${index})">Delete</button>
+      `;
+
+      stopEl.addEventListener('click', () => {
+        document.querySelectorAll('.stop').forEach(s => s.classList.remove('active'));
+        stopEl.classList.add('active');
+        map.flyTo(stop.coords, 11, { duration: 1.2 });
+      });
+
+      timeline.appendChild(stopEl);
     });
-    const marker = L.marker(stop.coords, { icon }).addTo(map);
-    marker.bindPopup(`<b>${stop.time} · ${stop.name}</b>${stop.note}`);
-    return marker;
-  });
 
-  // Polyline connecting stops (rail-style: solid red with dashed overlay)
-  const path = stops.map(s => s.coords);
+    updateDuration();
+  }
 
-  L.polyline(path, {
-    color: '#7a1f17',
-    weight: 6,
-    opacity: 0.9,
-    lineCap: 'round',
-    lineJoin: 'round'
-  }).addTo(map);
+  // Update map
+  function updateMap() {
+    markers.forEach(m => map.removeLayer(m));
+    polylines.forEach(p => map.removeLayer(p));
+    markers = [];
+    polylines = [];
 
-  L.polyline(path, {
-    color: '#f5efe2',
-    weight: 2,
-    opacity: 0.95,
-    dashArray: '8, 10',
-    lineCap: 'butt'
-  }).addTo(map);
+    if (stops.length === 0) return;
 
-  // Fit bounds with padding
-  map.fitBounds(L.latLngBounds(path), { padding: [80, 80] });
-
-  // Sidebar interactions
-  const stopEls = document.querySelectorAll('.stop');
-  stopEls.forEach((el, i) => {
-    el.addEventListener('click', () => {
-      stopEls.forEach(s => s.classList.remove('active'));
-      el.classList.add('active');
-      map.flyTo(stops[i].coords, 11, { duration: 1.2 });
-      markers[i].openPopup();
+    // Add markers
+    stops.forEach((stop, i) => {
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="pin ${i === 0 ? 'start' : (i === stops.length - 1 ? 'end' : '')}"><div class="pin-label">${stop.time} · ${stop.name}</div></div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+      });
+      const marker = L.marker(stop.coords, { icon }).addTo(map);
+      const personInfo = stop.person ? `<br><i>+ ${stop.person}</i>` : '';
+      marker.bindPopup(`<b>${stop.time} · ${stop.name}</b>${personInfo}`);
+      markers.push(marker);
     });
-    el.addEventListener('mouseenter', () => {
-      markers[i]._icon.style.transition = 'transform 0.3s ease';
-      markers[i]._icon.style.transform += ' scale(1.15)';
-    });
-    el.addEventListener('mouseleave', () => {
-      markers[i]._icon.style.transform = markers[i]._icon.style.transform.replace(' scale(1.15)', '');
-    });
-  });
 
-  // Open first popup
-  setTimeout(() => markers[0].openPopup(), 400);
+    // Add polyline
+    const path = stops.map(s => s.coords);
+    if (path.length > 1) {
+      L.polyline(path, {
+        color: '#7a1f17',
+        weight: 6,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      L.polyline(path, {
+        color: '#f5efe2',
+        weight: 2,
+        opacity: 0.95,
+        dashArray: '8, 10',
+        lineCap: 'butt'
+      }).addTo(map);
+
+      map.fitBounds(L.latLngBounds(path), { padding: [80, 80] });
+    }
+  }
+
+  // Add stop
+  function addStop() {
+    const stationName = document.getElementById('stationName').value.trim();
+    const yourName = document.getElementById('yourName').value.trim();
+    const stopTime = document.getElementById('stopTime').value.trim();
+
+    if (!stationName || !stopTime) {
+      alert('Please fill in station name and time');
+      return;
+    }
+
+    // Geocode the station (simplified - use OpenStreetMap)
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(stationName + ' Germany')}&format=json`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.length === 0) {
+          alert('Station not found');
+          return;
+        }
+        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        
+        stops.push({
+          name: stationName,
+          time: stopTime,
+          coords: coords,
+          person: yourName || null
+        });
+
+        stops.sort((a, b) => a.time.localeCompare(b.time));
+        
+        saveStops();
+        renderTimeline();
+        updateMap();
+
+        // Clear form
+        document.getElementById('stationName').value = '';
+        document.getElementById('yourName').value = '';
+        document.getElementById('stopTime').value = '';
+      })
+      .catch(() => alert('Error finding station'));
+  }
+
+  // Delete stop
+  function deleteStop(index) {
+    stops.splice(index, 1);
+    saveStops();
+    renderTimeline();
+    updateMap();
+  }
+
+  // Update duration
+  function updateDuration() {
+    if (stops.length < 2) {
+      document.getElementById('duration').textContent = 'Add stops';
+      return;
+    }
+    const start = stops[0].time.split(':');
+    const end = stops[stops.length - 1].time.split(':');
+    const minutes = (parseInt(end[0]) * 60 + parseInt(end[1])) - (parseInt(start[0]) * 60 + parseInt(start[1]));
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const durationText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    document.getElementById('duration').textContent = `Duration: ${durationText}`;
+  }
+
+  // Initialize
+  loadStops();
+  initMap();
+  renderTimeline();
+  updateMap();
 </script>
 </body>
 </html>
