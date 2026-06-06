@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FALTEIMER · Ersthelfer-App für Kleinbrände</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fire:    #FF4A00;
+    --ember:   #FF8C42;
+    --smoke:   #1A1A1A;
+    --ash:     #2C2C2C;
+    --grey:    #5A5A5A;
+    --light:   #F0EBE3;
+    --white:   #FFFFFF;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--smoke);
+    color: var(--light);
+    font-family: 'Barlow', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.6;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.2rem 3rem;
+    background: rgba(26,26,26,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,74,0,0.2);
+  }
+
+  .nav-logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.5rem;
+    letter-spacing: 0.08em;
+    color: var(--fire);
+    text-transform: uppercase;
+  }
+  .nav-logo span { color: var(--light); }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 2.5rem;
+  }
+  nav ul a {
+    color: var(--light);
+    text-decoration: none;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    opacity: 0.7;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  nav ul a:hover { opacity: 1; color: var(--fire); }
+
+  .nav-cta {
+    background: var(--fire);
+    color: var(--white) !important;
+    opacity: 1 !important;
+    padding: 0.5rem 1.4rem;
+    border-radius: 2px;
+  }
+  .nav-cta:hover { background: var(--ember); }
+
+  /* ─── HERO ─── */
+  #hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 8rem 3rem 4rem;
+    gap: 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #hero::after {
+    content: '';
+    position: absolute;
+    right: -100px;
+    top: -100px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(255,74,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 0.8rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--fire);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .hero-label::before {
+    content: '';
+    display: block;
+    width: 28px;
+    height: 2px;
+    background: var(--fire);
+  }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: clamp(4rem, 7vw, 6.5rem);
+    line-height: 0.92;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.5rem;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--fire);
+    display: block;
+  }
+
+  .hero-desc {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    opacity: 0.7;
+    max-width: 46ch;
+    margin-bottom: 2.5rem;
+  }
+
+  .btn-group { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--fire);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.9rem 2rem;
+    border-radius: 2px;
+    transition: background 0.2s, transform 0.15s;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--ember); transform: translateY(-2px); }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: transparent;
+    color: var(--light);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.9rem 2rem;
+    border-radius: 2px;
+    border: 1px solid rgba(240,235,227,0.25);
+    transition: border-color 0.2s, color 0.2s;
+    cursor: pointer;
+  }
+  .btn-ghost:hover { border-color: var(--fire); color: var(--fire); }
+
+  /* ─── PHONE MOCKUP ─── */
+  .hero-visual {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+
+  .phone-wrap {
+    position: relative;
+    animation: float 5s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-18px); }
+  }
+
+  .phone {
+    width: 260px;
+    height: 540px;
+    background: var(--ash);
+    border-radius: 36px;
+    border: 2px solid rgba(255,74,0,0.4);
+    box-shadow:
+      0 40px 80px rgba(0,0,0,0.6),
+      0 0 0 6px rgba(255,74,0,0.07),
+      inset 0 0 20px rgba(255,74,0,0.05);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .phone-notch {
+    width: 80px;
+    height: 22px;
+    background: var(--smoke);
+    border-radius: 0 0 14px 14px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+  }
+
+  .phone-screen {
+    padding: 0.75rem;
+    height: calc(100% - 22px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .app-header {
+    background: var(--fire);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .app-header span:first-child { font-size: 1.4rem; }
+  .app-header-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; }
+  .app-header-sub { font-size: 0.6rem; opacity: 0.7; color: #fff; font-weight: 400; }
+
+  .app-alert {
+    background: rgba(255,74,0,0.15);
+    border: 1px solid rgba(255,74,0,0.5);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .alert-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .alert-text { font-size: 0.7rem; line-height: 1.4; color: var(--light); }
+  .alert-text strong { color: var(--fire); font-weight: 600; font-size: 0.75rem; display: block; margin-bottom: 0.15rem; }
+
+  .app-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    flex: 1;
+  }
+
+  .app-tile {
+    background: var(--ash);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .app-tile:hover { border-color: rgba(255,74,0,0.4); }
+  .tile-icon { font-size: 1.4rem; }
+  .tile-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--light); }
+  .tile-sub { font-size: 0.6rem; color: var(--grey); }
+
+  .app-tile.accent { background: rgba(255,74,0,0.12); border-color: rgba(255,74,0,0.3); }
+
+  .app-sos {
+    background: var(--fire);
+    border-radius: 10px;
+    padding: 0.75rem;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .app-sos::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 2.5s infinite;
+  }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+
+  /* ─── STATS BAND ─── */
+  #stats {
+    background: var(--ash);
+    border-top: 1px solid rgba(255,74,0,0.15);
+    border-bottom: 1px solid rgba(255,74,0,0.15);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 3rem;
+    gap: 2rem;
+  }
+
+  .stat {
+    text-align: center;
+    padding: 0 1.5rem;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 3.5rem;
+    color: var(--fire);
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.5;
+    font-weight: 500;
+  }
+
+  /* ─── FEATURES ─── */
+  #features {
+    padding: 7rem 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--fire);
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2.5rem, 4vw, 3.8rem);
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 1rem;
+    max-width: 20ch;
+  }
+
+  .section-sub {
+    font-size: 1rem;
+    opacity: 0.55;
+    max-width: 50ch;
+    line-height: 1.7;
+    margin-bottom: 4rem;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5px;
+    background: rgba(255,74,0,0.1);
+    border: 1.5px solid rgba(255,74,0,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .feature-card {
+    background: var(--ash);
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.25s;
+  }
+  .feature-card:hover { background: #2f2f2f; }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: transparent;
+    transition: background 0.25s;
+  }
+  .feature-card:hover::before { background: var(--fire); }
+
+  .feature-icon {
+    font-size: 2.4rem;
+    margin-bottom: 1.25rem;
+    display: block;
+  }
+  .feature-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  .feature-desc {
+    font-size: 0.875rem;
+    opacity: 0.55;
+    line-height: 1.7;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  #howto {
+    background: var(--ash);
+    padding: 7rem 3rem;
+    border-top: 1px solid rgba(255,74,0,0.1);
+  }
+
+  .howto-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-top: 4rem;
+    position: relative;
+  }
+
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 2.5rem;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--fire), transparent);
+    opacity: 0.3;
+  }
+
+  .step {
+    padding: 0 2rem;
+    position: relative;
+    text-align: center;
+  }
+
+  .step-num {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    border: 2px solid rgba(255,74,0,0.4);
+    background: var(--smoke);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: var(--fire);
+    margin: 0 auto 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-icon { font-size: 1.6rem; }
+
+  .step-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    color: var(--light);
+  }
+  .step-desc { font-size: 0.85rem; opacity: 0.5; line-height: 1.65; }
+
+  /* ─── BRAND STRIP ─── */
+  #brand {
+    padding: 2.5rem 3rem;
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    overflow: hidden;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .brand-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.3;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .brand-logos {
+    display: flex;
+    gap: 3rem;
+    align-items: center;
+    flex-wrap: wrap;
+    opacity: 0.25;
+    filter: grayscale(1);
+  }
+
+  .brand-item {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ─── CTA ─── */
+  #cta {
+    padding: 8rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(255,74,0,0.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .cta-badge {
+    display: inline-block;
+    background: rgba(255,74,0,0.15);
+    border: 1px solid rgba(255,74,0,0.4);
+    color: var(--fire);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.4rem 1rem;
+    border-radius: 2px;
+    margin-bottom: 2rem;
+  }
+
+  .cta-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    text-transform: uppercase;
+    line-height: 0.95;
+    margin-bottom: 1.5rem;
+  }
+  .cta-title span { color: var(--fire); }
+
+  .cta-desc {
+    font-size: 1rem;
+    opacity: 0.55;
+    max-width: 46ch;
+    margin: 0 auto 3rem;
+    line-height: 1.7;
+  }
+
+  .store-badges {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .store-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--ash);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--light);
+    text-decoration: none;
+    padding: 0.85rem 1.75rem;
+    border-radius: 6px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .store-btn:hover { border-color: var(--fire); background: rgba(255,74,0,0.08); }
+  .store-icon { font-size: 1.4rem; }
+  .store-text-top { font-size: 0.6rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.1em; display: block; }
+  .store-text-main { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: 0.04em; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: #111;
+    border-top: 1px solid rgba(255,74,0,0.1);
+    padding: 3rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+  }
+
+  .foot-brand .nav-logo { font-size: 1.3rem; display: block; margin-bottom: 0.75rem; }
+  .foot-brand p { font-size: 0.8rem; opacity: 0.4; line-height: 1.7; max-width: 28ch; }
+
+  .foot-col h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fire);
+    margin-bottom: 1.2rem;
+  }
+
+  .foot-col ul { list-style: none; }
+  .foot-col li { margin-bottom: 0.65rem; }
+  .foot-col a {
+    color: var(--light);
+    text-decoration: none;
+    font-size: 0.85rem;
+    opacity: 0.4;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .foot-col a:hover { opacity: 0.9; color: var(--fire); }
+
+  .foot-copy {
+    background: #0d0d0d;
+    padding: 1.25rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    opacity: 0.3;
+  }
+
+  /* ─── SCROLL ANIMATIONS ─── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    nav { padding: 1rem 1.5rem; }
+    nav ul { display: none; }
+    #hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; text-align: center; }
+    #hero::after { display: none; }
+    .hero-desc { margin: 0 auto 2rem; }
+    .btn-group { justify-content: center; }
+    #stats { grid-template-columns: repeat(2, 1fr); padding: 2rem 1.5rem; }
+    .stat { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .stat:nth-child(odd) { border-right: 1px solid rgba(255,255,255,0.06); }
+    .stat:last-child, .stat:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+    #features { padding: 4rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; }
+    #howto { padding: 4rem 1.5rem; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .steps::before { display: none; }
+    footer { grid-template-columns: 1fr 1fr; gap: 2rem; padding: 2rem 1.5rem; }
+    .foot-brand { grid-column: 1 / -1; }
+    #cta { padding: 5rem 1.5rem; }
+    .phone-wrap { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Falteimer<span> · App</span></div>
+  <ul>
+    <li><a href="#features">Funktionen</a></li>
+    <li><a href="#howto">So funktioniert's</a></li>
+    <li><a href="#cta">Download</a></li>
+    <li><a href="#cta" class="nav-cta">Jetzt starten</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-text">
+    <div class="hero-label">Erste Hilfe bei Kleinbränden</div>
+    <h1>Kein<br>Brand<br><em>zu klein.</em></h1>
+    <p class="hero-desc">
+      Der digitale Ersthelfer-Assistent für Kleinbrände im Haushalt, Betrieb und Freigelände —
+      mit Schritt-für-Schritt-Anleitung, Falteimer-Navigation und direktem Notruf-Support.
+    </p>
+    <div class="btn-group">
+      <a href="#cta" class="btn-primary">🔥 App herunterladen</a>
+      <a href="#howto" class="btn-ghost">▶ Wie es funktioniert</a>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="app-header">
+            <span>🪣</span>
+            <div>
+              <div class="app-header-text">Falteimer · App</div>
+              <div class="app-header-sub">Ersthelfer-Modus aktiv</div>
+            </div>
+          </div>
+          <div class="app-alert">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-text">
+              <strong>Branderkennung</strong>
+              Kleines Feuer erkannt. Wasser­entnahme in 12 m Entfernung.
+            </div>
+          </div>
+          <div class="app-grid">
+            <div class="app-tile accent">
+              <div class="tile-icon">🪣</div>
+              <div class="tile-label">Falteimer</div>
+              <div class="tile-sub">Route anzeigen</div>
+            </div>
+            <div class="app-tile">
+              <div class="tile-icon">💧</div>
+              <div class="tile-label">Wasser</div>
+              <div class="tile-sub">Nächste Quelle</div>
+            </div>
+            <div class="app-tile">
+              <div class="tile-icon">📋</div>
+              <div class="tile-label">Anleitung</div>
+              <div class="tile-sub">Schritt für Schritt</div>
+            </div>
+            <div class="app-tile">
+              <div class="tile-icon">📡</div>
+              <div class="tile-label">Melden</div>
+              <div class="tile-sub">Brandprotokoll</div>
+            </div>
+          </div>
+          <div class="app-sos">🚨 NOTRUF 112</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section id="stats">
+  <div class="stat">
+    <div class="stat-num">92%</div>
+    <div class="stat-label">Kleinbrände löschbar ohne Feuerwehr</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">&lt;90s</div>
+    <div class="stat-label">Bis zur ersten Handlungsanweisung</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">15 l</div>
+    <div class="stat-label">Fassungsvermögen Falteimer-Standard</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">24/7</div>
+    <div class="stat-label">Offline-Verfügbarkeit & GPS-Tracking</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-label">Funktionsumfang</div>
+  <h2 class="section-title reveal">Ausgerüstet für den Ernstfall</h2>
+  <p class="section-sub reveal">Jede Funktion ist auf schnelle, sichere Erstreaktion ausgelegt — auch ohne Netzempfang.</p>
+
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <span class="feature-icon">🗺️</span>
+      <div class="feature-title">Falteimer-Navigation</div>
+      <p class="feature-desc">Zeigt den nächstgelegenen Depot- oder Wasserpunkt per GPS-Routing — auch offline via heruntergeladener Karten.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">📋</span>
+      <div class="feature-title">Schritt-für-Schritt-Guides</div>
+      <p class="feature-desc">Klare, illustrierte Anleitungen für verschiedene Brandklassen: Papierkorb, Balkonbrand, Fahrzeug, Vegetation und mehr.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">📡</span>
+      <div class="feature-title">Automatischer Notruf</div>
+      <p class="feature-desc">Ein Tap sendet GPS-Koordinaten und Lage-Beschreibung direkt an die Leitstelle — mit vorausgefülltem Notruf-Skript.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">💧</span>
+      <div class="feature-title">Wasserquellen-Karte</div>
+      <p class="feature-desc">Eingebettete Datenbank mit Hydranten, Löschwasserbehältern, Teichen und Privatbrunnen im Umkreis.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">📦</span>
+      <div class="feature-title">Depot-Verwaltung</div>
+      <p class="feature-desc">Eigene Falteimer-Depots anlegen, Füllstand protokollieren und Wartungserinnerungen einrichten.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🔕</span>
+      <div class="feature-title">Vollständig offline</div>
+      <p class="feature-desc">Alle Kernfunktionen laufen ohne Mobilnetz. Karten, Guides und Kontakte sind lokal gespeichert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="howto">
+  <div class="howto-inner">
+    <div class="section-label">Ablauf</div>
+    <h2 class="section-title reveal">Im Ernstfall zählt jede Sekunde</h2>
+    <p class="section-sub reveal">Vier Schritte — von der Brandentdeckung bis zur sicheren Übergabe.</p>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num"><span class="step-icon">🔥</span></div>
+        <div class="step-title">Brand erkennen</div>
+        <p class="step-desc">App öffnen oder Kachel-Widget antippen. Brandklasse und Ausmaß kurz einschätzen.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num"><span class="step-icon">🪣</span></div>
+        <div class="step-title">Falteimer holen</div>
+        <p class="step-desc">Die App navigiert zum nächsten Depot und zeigt die schnellste Wasserquelle an.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num"><span class="step-icon">💧</span></div>
+        <div class="step-title">Löschen & sichern</div>
+        <p class="step-desc">Anleitung für die Brandklasse folgen. Löschen, Bereich absichern, Rückzündung prüfen.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num"><span class="step-icon">📋</span></div>
+        <div class="step-title">Protokollieren</div>
+        <p class="step-desc">Vorfall dokumentieren, Notruf-Status sichern, Einsatzbericht an die Feuerwehr übergeben.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUSTED BY -->
+<section id="brand">
+  <div class="brand-label">Empfohlen von</div>
+  <div class="brand-logos">
+    <span class="brand-item">🔴 Feuerwehrverband Bayern</span>
+    <span class="brand-item">🛡️ THW</span>
+    <span class="brand-item">🏢 DEKRA</span>
+    <span class="brand-item">🌲 Forst Bayern</span>
+    <span class="brand-item">🏘️ BBK</span>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="cta-badge">🔥 Kostenlos — iOS & Android</div>
+  <h2 class="cta-title">Bereit, bevor<br>es <span>brennt.</span></h2>
+  <p class="cta-desc">
+    Lade die Falteimer-App jetzt herunter und registriere dein nächstes Depot.
+    Im Ernstfall ist Vorbereitung kein Vorteil — sie ist alles.
+  </p>
+  <a href="#" class="btn-primary" style="margin: 0 auto; display: inline-flex; margin-bottom: 1.5rem;">
+    🪣 Jetzt kostenlos laden
+  </a>
+  <div class="store-badges">
+    <a href="#" class="store-btn">
+      <span class="store-icon">🍎</span>
+      <span>
+        <span class="store-text-top">Laden im</span>
+        <span class="store-text-main">App Store</span>
+      </span>
+    </a>
+    <a href="#" class="store-btn">
+      <span class="store-icon">▶</span>
+      <span>
+        <span class="store-text-top">Jetzt bei</span>
+        <span class="store-text-main">Google Play</span>
+      </span>
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-brand">
+    <span class="nav-logo">Falteimer<span> · App</span></span>
+    <p>Der digitale Ersthelfer-Begleiter für Kleinbrände — entwickelt in Deutschland, für Deutschland.</p>
+  </div>
+  <div class="foot-col">
+    <h4>App</h4>
+    <ul>
+      <li><a href="#">Funktionen</a></li>
+      <li><a href="#">Download</a></li>
+      <li><a href="#">Changelog</a></li>
+      <li><a href="#">API für Kommunen</a></li>
+    </ul>
+  </div>
+  <div class="foot-col">
+    <h4>Wissen</h4>
+    <ul>
+      <li><a href="#">Brandklassen</a></li>
+      <li><a href="#">Falteimer-Guide</a></li>
+      <li><a href="#">Depot anlegen</a></li>
+      <li><a href="#">Notruf-Tipps</a></li>
+    </ul>
+  </div>
+  <div class="foot-col">
+    <h4>Rechtliches</h4>
+    <ul>
+      <li><a href="#">Datenschutz</a></li>
+      <li><a href="#">Impressum</a></li>
+      <li><a href="#">Nutzungsbedingungen</a></li>
+      <li><a href="#">Kontakt</a></li>
+    </ul>
+  </div>
+</footer>
+<div class="foot-copy">
+  <span>© 2026 Falteimer App GmbH · Made in Germany 🇩🇪</span>
+  <span>Keine Haftung für Brandschäden — Im Notfall: 112</span>
+</div>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => observer.observe(el));
+
+  // Nav scroll effect
+  const nav = document.querySelector('nav');
+  window.addEventListener('scroll', () => {
+    nav.style.borderBottomColor = window.scrollY > 50
+      ? 'rgba(255,74,0,0.35)'
+      : 'rgba(255,74,0,0.2)';
+  });
+</script>
+</body>
+</html>
